@@ -12,3 +12,5 @@ IDS Executive Member of Signal and Neuroimaging Department
 
 Ask Your Questions via Email:
 armintoghi85@gmail.com
+
+Send your exercises on Telegram
