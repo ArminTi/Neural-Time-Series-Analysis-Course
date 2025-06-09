@@ -104,4 +104,96 @@ for freq = 1:num_wave
     title([num2str(f(freq)) ' Hz Phase'])
 end
 
+%% Question part 2 session 7
 
+clear all
+clc
+load sampleEEGdata.mat
+
+srate   = EEG.srate;
+time    = -1:1/srate:1;
+chan    = 47;  
+trial   = randi(EEG.trials);  
+
+% baseline time window
+baseline_time = [ -400 -100 ];
+[junk,baseidx(1)] = min(abs(EEG.times-baseline_time(1)));
+[junk,baseidx(2)] = min(abs(EEG.times-baseline_time(2)));
+
+frequencies = [5 25];
+nCycles     = 4;
+nyquist     = srate/2;
+data        = double(squeeze(EEG.data(chan,:,:)));
+
+% Initialize result matrices
+pow_wavelet = zeros(length(frequencies), EEG.pnts);
+sig_wavelet = zeros(length(frequencies), EEG.pnts);
+pow_hilbert = zeros(length(frequencies), EEG.pnts);
+sig_hilbert = zeros(length(frequencies), EEG.pnts);
+
+for fi = 1:length(frequencies)
+    f = frequencies(fi);
+
+    % Morlet wavelet convolution
+    s = nCycles / (2*pi*f);
+    wavelet = exp(2*1i*pi*f.*time) .* exp(-time.^2./(2*s^2));
+    n_conv = EEG.pnts*EEG.trials + length(wavelet) - 1;
+    
+    data_cat = reshape(data,1,[]);
+    conv_res = ifft(fft(wavelet,n_conv).*fft(data_cat,n_conv));
+    
+    conv_res = conv_res(floor(length(wavelet)/2)+1:end-floor(length(wavelet)/2));
+    conv_res = reshape(conv_res, EEG.pnts, EEG.trials);
+    
+    sig_wavelet(fi,:) = real(conv_res(:,trial));
+    pow_wavelet(fi,:) = mean(abs(conv_res).^2,2);
+
+
+
+    sig_wavelet(fi,:) = 10*log10(squeeze(real(sig_wavelet(fi,:))) ./ mean(sig_wavelet(fi,baseidx(1):baseidx(2)),2) );
+    pow_wavelet(fi,:) = 10*log10(squeeze(pow_wavelet(fi, :)) ./ mean(pow_wavelet(fi, baseidx(1):baseidx(2)),2) );
+
+
+    % Filter-Hilbert
+    freqspread = 4;  
+    transwid   = 0.15;
+
+    % ffreqs  = [0 (1-transwid)*(f-freqspread) f-freqspread f+freqspread (1+transwid)*(f+freqspread) nyquist] / nyquist;
+    ffreqs  = [ 0 (1-transwid)*(f-freqspread) (f-freqspread) (f+freqspread) (1+transwid)*(f+freqspread) nyquist ]/nyquist;
+    ideal   = [0 0 1 1 0 0];
+    % filter_order = 100;  
+    filter_order = 3*round(EEG.srate/(f-freqspread))
+    fkernel = firls(filter_order, ffreqs, ideal);
+
+    
+    data_filt = reshape(filtfilt(fkernel,1,data_cat), EEG.pnts,EEG.trials);  
+    % analytic  = hilbert(data_filt);        
+
+    sig_hilbert(fi,:) = real(data_filt(:,trial));
+    pow_hilbert(fi,:) = mean(abs(data_filt).^2,2);
+
+    sig_hilbert(fi,:) = 10*log10(squeeze(real(sig_hilbert(fi,:))) ./ mean(sig_hilbert(fi,baseidx(1):baseidx(2)),2) );
+    pow_hilbert(fi,:) = 10*log10(squeeze(pow_hilbert(fi, :)) ./ mean(pow_hilbert(fi, baseidx(1):baseidx(2)),2) );
+end
+
+% Plot single trial
+figure
+for fi = 1:2
+    subplot(2,2,fi)
+    plot(EEG.times, sig_wavelet(fi,:), 'k'); hold on
+    plot(EEG.times, sig_hilbert(fi,:), 'r')
+    set(gca,'xlim',[-300 800])
+    title(['Filtered signal at ' num2str(frequencies(fi)) ' Hz'])
+    legend('Wavelet','Hilbert')
+    xlabel('Time (ms)'), ylabel('Amplitude')
+    grid on
+
+    subplot(2,2,fi+2)
+    plot(EEG.times, pow_wavelet(fi,:), 'k'); hold on
+    plot(EEG.times, pow_hilbert(fi,:), 'r')
+    set(gca,'xlim',[-300 800])
+    title(['Power at ' num2str(frequencies(fi)) ' Hz'])
+    legend('Wavelet','Hilbert')
+    xlabel('Time (ms)'), ylabel('Power (μV^2)')
+    grid on
+end
