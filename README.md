@@ -9,6 +9,4 @@ From: Mike X Cohen, Presented by: Armin Toghi
 IDS Executive Member of Signal and Neuroimaging Department
 
 Ask Your Questions via Email:
-armintoghi85@gmail.com
-
-Send your exercises on Telegram
+armintoghi85@gmail.com, Send your exercises on Telegram
